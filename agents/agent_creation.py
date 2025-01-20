@@ -52,8 +52,7 @@ class AgentCreation:
             return closest_agent
 
         self.remove_least_used_agent_if_needed()
-        new_agent = self.create_new_agent(purpose, depth, sample_input)
-        return new_agent
+        return self.create_new_agent(purpose, depth, sample_input)
 
     def remove_least_used_agent_if_needed(self) -> None:
         """

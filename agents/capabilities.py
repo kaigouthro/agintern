@@ -9,22 +9,24 @@ import os
 import difflib
 import git
 
+
 class Ability(ABC):
     @abstractmethod
     def execute(self, agent, **kwargs):
         pass
 
+
 class CodeExecutionAbility(Ability):
     CODE_BLOCK_START = "```python"
     CODE_BLOCK_END = "```"
-    MAX_RESPONSE_LENGTH = 4000
+    MAX_RESPONSE_LENGTH = 8000
     RESPONSE_PREVIEW_LENGTH = 600
 
     def execute(self, agent, **kwargs):
-        text_with_code = kwargs.get('text_with_code')
+        text_with_code = kwargs.get("text_with_code")
         if not text_with_code:
             return "No code provided for execution."
-        
+
         code_to_execute = self._extract_code(text_with_code)
         stdout, stderr = self._execute_code(code_to_execute)
         return self._format_response(stdout, stderr)
@@ -42,42 +44,49 @@ class CodeExecutionAbility(Ability):
     def _format_response(self, stdout: str, stderr: str) -> str:
         response = "Executed Python Code Successfully."
         if stdout:
-            response += "
-Standard Output:
-" + stdout
+            response += f"Standard Output:{stdout}"
         if stderr:
-            response += "
-Standard Error:
-" + stderr
+            response += f"Standard Error:{stderr}"
 
         if len(response) > self.MAX_RESPONSE_LENGTH:
             preview_end = self.RESPONSE_PREVIEW_LENGTH
-            return response[:preview_end] + "..." + response[-(self.MAX_RESPONSE_LENGTH - preview_end):]
+            return f"{response[:preview_end]}...{response[-(self.MAX_RESPONSE_LENGTH - preview_end) :]}"
         return response
+
 
 class FileSystemAbility(Ability):
     def __init__(self):
         self.base_dir = tempfile.mkdtemp()
 
     def execute(self, agent, **kwargs):
-        action = kwargs.get('action')
-        if action == 'write_file':
-            return self._write_file(kwargs.get('filename'), kwargs.get('content'))
-        elif action == 'read_file':
-            return self._read_file(kwargs.get('filename'))
-        elif action == 'list_contents':
-            return self._list_contents(kwargs.get('path', '.'))
-        elif action == 'make_dir':
-            return self._make_dir(kwargs.get('dirpath'))
-        elif action == 'remove_dir':
-            return self._remove_dir(kwargs.get('dirpath'))
+        filename = kwargs.get("filename") or None
+        dirpath = kwargs.get("path") or None
+
+        action = kwargs.get("action")
+        if action == "write_file":
+            if not filename:
+                return "No filename specified."
+            if "content" not in kwargs:
+                return "No content specified."
+            if content := kwargs.get("content") or None:
+                return self._write_file(filename, content)
+            else:
+                return "No content specified."
+        elif action == "read_file":
+            return self._read_file(filename) if filename else "No filename specified."
+        elif action == "list_contents":
+            return self._list_contents(dirpath or ".")
+        elif action == "make_dir":
+            return self._make_dir(dirpath) if dirpath else "No path specified."
+        elif action == "remove_dir":
+            return self._remove_dir(dirpath) if dirpath else "No path specified."
         else:
             return "Invalid file system action specified."
 
     def _write_file(self, filename: str, content: str) -> str:
         filepath = os.path.join(self.base_dir, filename)
         try:
-            with open(filepath, 'w') as f:
+            with open(filepath, "w") as f:
                 f.write(content)
             return f"File '{filename}' written successfully to '{filepath}'."
         except Exception as e:
@@ -86,13 +95,12 @@ class FileSystemAbility(Ability):
     def _read_file(self, filename: str) -> str:
         filepath = os.path.join(self.base_dir, filename)
         try:
-            with open(filepath, 'r') as f:
+            with open(filepath, "r") as f:
                 content = f.read()
-            return f"Content of '{filename}':
-{content}"
+            return f"Content of '{filename}':{content}"
         except Exception as e:
             return f"Error reading file '{filename}': {e}"
-        
+
     def _list_contents(self, path: str) -> str:
         """List the contents of a directory."""
         fullpath = os.path.join(self.base_dir, path)
@@ -120,18 +128,17 @@ class FileSystemAbility(Ability):
         except Exception as e:
             return f"Error removing directory '{dirpath}': {e}"
 
+
 class DiffAbility(Ability):
     def execute(self, agent, **kwargs):
-        original_content = kwargs.get('original_content', '')
-        modified_content = kwargs.get('modified_content', '')
+        original_content = kwargs.get("original_content", "")
+        modified_content = kwargs.get("modified_content", "")
         return self._calculate_diff(original_content, modified_content)
 
     def _calculate_diff(self, original_content: str, modified_content: str) -> str:
-        diff = difflib.unified_diff(original_content.splitlines(keepends=True),
-                                    modified_content.splitlines(keepends=True),
-                                    fromfile='original',
-                                    tofile='modified')
-        return ''.join(diff)
+        diff = difflib.unified_diff(original_content.splitlines(keepends=True), modified_content.splitlines(keepends=True), fromfile="original", tofile="modified")
+        return "".join(diff)
+
 
 class GitAbility(Ability):
     def __init__(self):
@@ -139,15 +146,28 @@ class GitAbility(Ability):
         self.repo = git.Repo.init(self.repo_path)
 
     def execute(self, agent, **kwargs):
-        action = kwargs.get('action')
-        if action == 'add':
-            return self._git_add(kwargs.get('filepath'))
-        elif action == 'commit':
-            return self._git_commit(kwargs.get('message'))
-        elif action == 'branch':
-            return self._git_branch(kwargs.get('branch_name'))
-        elif action == 'checkout':
-            return self._git_checkout(kwargs.get('branch_name'))
+        action = kwargs.get("action")
+        # Add more git actions as needed, create checks for kwargs
+
+        if action == "add":
+            if filepath := kwargs.get("filepath") or None:
+                return self._git_add(filepath)
+            else:
+                return "Filepath is required for 'add' action."
+
+        elif action == "commit":
+            message = kwargs.get("message") or None
+            return self._git_commit(message) if message else "No message was Specified"
+        elif action == "branch":
+            if branch_name := kwargs.get("branch_name") or None:
+                return self._git_branch(branch_name)
+            else:
+                return "No branch_name was Specified"
+        elif action == "checkout":
+            if branch_name := kwargs.get("branch_name") or None:
+                return self._git_checkout(branch_name)
+            else:
+                return "No branch_name was Specified"
         else:
             return "Invalid git action specified."
 
@@ -179,11 +199,12 @@ class GitAbility(Ability):
         except Exception as e:
             return f"Error checking out branch '{branch_name}': {e}"
 
+
 class PythonFunctionAbility(Ability):
     def execute(self, agent, **kwargs):
-        func = kwargs.get('function')
-        args = kwargs.get('args', [])
-        kwargs_inner = kwargs.get('kwargs', {})
+        func = kwargs.get("function")
+        args = kwargs.get("args", [])
+        kwargs_inner = kwargs.get("kwargs", {})
 
         if not callable(func):
             return "Provided function is not callable."

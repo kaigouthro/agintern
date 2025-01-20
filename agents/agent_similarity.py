@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import Any, List, Tuple, Optional
 from sklearn.metrics.pairwise import cosine_similarity
 from integrations.llm_wrapper import LLMAPIWrapper
 from microagent import MicroAgent
@@ -29,13 +29,16 @@ class AgentSimilarity:
         :return: Embedding as a numpy array.
         """
         try:
-            response = self.llm_wrapper.get_embedding(text)
+            response: List[float] | Any = self.llm_wrapper.get_embedding(text)
+            # if not a dict..
+            if not isinstance(response, dict):
+                return np.array(response)
             if "data" in response and len(response["data"]) > 0 and "embedding" in response["data"][0]:
                 return np.array(response["data"][0]["embedding"])
             else:
                 raise ValueError("Invalid response format")
         except Exception as e:
-            raise ValueError(f"Error retrieving embedding: {e}")
+            raise ValueError(f"Error retrieving embedding: {e}") from e
 
     def calculate_similarity_threshold(self) -> float:
         """
@@ -51,7 +54,7 @@ class AgentSimilarity:
             similarities = [cosine_similarity([e1], [e2])[0][0] for i, e1 in enumerate(embeddings) for e2 in embeddings[i + 1 :]]
             return float(np.percentile(similarities, 98) if similarities else 0.9)
         except Exception as e:
-            raise ValueError(f"Error calculating similarity threshold: {e}")
+            raise ValueError(f"Error calculating similarity threshold: {e}") from e
 
     def find_closest_agent(self, purpose_embedding: np.ndarray) -> Tuple[Optional[Agent | MicroAgent], float]:
         """
@@ -74,4 +77,4 @@ class AgentSimilarity:
 
             return closest_agent, highest_similarity
         except Exception as e:
-            raise ValueError(f"Error finding closest agent: {e}")
+            raise ValueError(f"Error finding closest agent: {e}") from e
