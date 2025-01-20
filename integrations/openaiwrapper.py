@@ -2,10 +2,7 @@ from typing import Union, List, Dict, Any, Optional, Sequence, Callable, Type
 import time
 import logging
 
-from langchain_core.messages import (
-    BaseMessage,
-    AIMessage
-    )
+from langchain_core.messages import BaseMessage, AIMessage
 
 from langchain_core.tools import BaseTool
 from langchain_core.language_models import LanguageModelInput
@@ -27,7 +24,6 @@ from llm_wrapper import LLMAPIWrapper
 
 RETRY_SLEEP_DURATION = 1  # seconds
 MAX_RETRIES = 5
-
 
 
 class OpenAIAPIWrapper(LLMAPIWrapper):
@@ -183,13 +179,7 @@ class OpenAIAPIWrapper(LLMAPIWrapper):
 
             llm = self._bind(tools=[schema])
 
-            output_parser = (
-                PydanticToolsParser(tools=[schema], first_tool_only=True)
-                if isinstance(schema, type) and issubclass(schema, BaseModel)
-                else JsonOutputKeyToolsParser(
-                    key_name=schema_name, first_tool_only=True
-                )
-            )
+            output_parser = PydanticToolsParser(tools=[schema], first_tool_only=True) if isinstance(schema, type) and issubclass(schema, BaseModel) else JsonOutputKeyToolsParser(key_name=schema_name, first_tool_only=True)
         elif method == "json_mode":
             llm = self._bind(response_format={"type": "json_object"})
             output_parser = PydanticOutputParser(pydantic_object=schema) if isinstance(schema, type) and issubclass(schema, BaseModel) else JsonOutputParser()
@@ -201,14 +191,6 @@ class OpenAIAPIWrapper(LLMAPIWrapper):
                 raw=llm,
                 parsed=lambda x: itemgetter(x) | output_parser,
                 parsing_error=lambda _: None,
-            ).with_fallbacks(
-                fallbacks=[
-                    RunnablePassthrough.assign(
-                        parsed=lambda x: x,  # Provide a valid callable or Runnable
-                        parsing_error=lambda _: None,
-                    )
-                ],
-                exception_key="parsing_error",
             )
         else:
             return llm | output_parser

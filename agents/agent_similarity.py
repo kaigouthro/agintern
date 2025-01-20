@@ -4,6 +4,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from integrations.llm_wrapper import LLMAPIWrapper
 from microagent import MicroAgent
 
+from typing import TypeAlias
 
 class Agent:
     def __init__(self, purpose: str):
