@@ -67,9 +67,37 @@ def log_exception(exception: Exception, message: str = DEFAULT_EXCEPTION_MESSAGE
     logging.error(f"{message}: {exception}")
 
 
+class MessageConversionError(Exception):
+    """Raised when there is an error converting a message to dictionary."""
+    pass
+
+
 def convert_message_to_dict(message: BaseMessage) -> dict:
-    """Convert a LangChain message to a dictionary."""
-    message_dict: Dict[str, Any] = {"content": message.content}
+    """
+    Convert a LangChain message to a dictionary.
+
+    Args:
+        message: BaseMessage object to convert
+
+    Returns:
+        dict: Dictionary representation of the message
+
+    Raises:
+        MessageConversionError: If message validation fails
+    """
+    if not isinstance(message, BaseMessage):
+        raise MessageConversionError("Input must be a BaseMessage instance")
+
+    if not hasattr(message, 'content'):
+        raise MessageConversionError("Message missing required 'content' attribute")
+
+    if not isinstance(message.content, (str, type(None))):
+        raise MessageConversionError("Message content must be string or None")
+
+    if not hasattr(message, 'additional_kwargs') or not isinstance(message.additional_kwargs, dict):
+        raise MessageConversionError("Message missing or invalid 'additional_kwargs'")
+
+    message_dict: Dict[str, Any] = {"content": message.content or ""}
     if (name := message.additional_kwargs.get("name")) is not None:
         message_dict["name"] = name
 
