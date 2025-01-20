@@ -51,8 +51,13 @@ class AgentSimilarity:
             if len(embeddings) < 250:
                 return 0.9
 
-            similarities = [cosine_similarity([e1], [e2])[0][0] for i, e1 in enumerate(embeddings) for e2 in embeddings[i + 1 :]]
-            return float(np.percentile(similarities, 98) if similarities else 0.9)
+            # Normalize the embeddings
+            normalized_embeddings = embeddings / np.linalg.norm(embeddings, axis=1)[:, np.newaxis]
+            # Compute all pairwise similarities at once
+            similarity_matrix = np.dot(normalized_embeddings, normalized_embeddings.T)
+            # Extract upper triangle to avoid duplicates
+            upper_triangle = similarity_matrix[np.triu_indices(len(embeddings), k=1)]
+            return float(np.percentile(upper_triangle, 98) if len(upper_triangle) > 0 else 0.9)
         except Exception as e:
             raise ValueError(f"Error calculating similarity threshold: {e}") from e
 
