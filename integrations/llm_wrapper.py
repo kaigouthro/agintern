@@ -24,21 +24,7 @@ ModelOutput: TypeAlias = Union[Dict, BaseModel]
 StructuredRunnable: TypeAlias = Runnable[ModelInput, ModelOutput]
 
 
-class ToolBindingMixin:
-    def bind_tools(self, tools: Sequence[Union[Dict[str, Any], Type, Callable, BaseTool]], **kwargs: Any) -> Runnable[ModelInput, BaseMessage] | StructuredRunnable:
-        formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
-        return self._execute_with_tools_or_schema(tools=formatted_tools, **kwargs)
-
-    def with_structured_output(self, schema: Union[Dict[str, Any], Type[BaseModel]], **kwargs: Any) -> Runnable[ModelInput, BaseMessage] | StructuredRunnable:
-        return self._execute_with_tools_or_schema(schema=schema, **kwargs)
-
-    @abstractmethod
-    def _execute_with_tools_or_schema(self, **kwargs: Any) -> Union[Runnable[ModelInput, BaseMessage], StructuredRunnable]:
-        """Single abstract method for tool/schema execution"""
-        pass
-
-
-class LLMAPIWrapper(ABC, ToolBindingMixin):
+class LLMAPIWrapper(ABC):
     """
     Abstract base class for Language Model API wrappers.
 
@@ -120,11 +106,12 @@ class LLMAPIWrapper(ABC, ToolBindingMixin):
         """
         ...
 
-    def bind_tools(
-        self,
-        tools: Sequence[Union[Dict[str, Any], Type, Callable, BaseTool]],
-        **kwargs: Any,
-    ) -> Runnable[ModelInput, BaseMessage] | StructuredRunnable:
+    @abstractmethod
+    def execute_with_tools_or_schema(self, tools: Optional[Sequence[Union[Dict[str, Any], Type, Callable, BaseTool]]] = None, schema: Optional[Union[Dict[str, Any], Type[BaseModel]]] = None, **kwargs: Any) -> Union[Runnable[ModelInput, BaseMessage], StructuredRunnable]:
+        """Single abstract method for both tool binding and schema handling"""
+        ...
+
+    def bind_tools(self, tools: Sequence[Union[Dict[str, Any], Type, Callable, BaseTool]], **kwargs: Any) -> Union[Runnable[ModelInput, BaseMessage], StructuredRunnable]:
         """
         Binds tools to the chat model for structured interactions.
 
@@ -137,34 +124,9 @@ class LLMAPIWrapper(ABC, ToolBindingMixin):
         Returns:
             A `Runnable` object that can be used to invoke the model with the bound tools.
         """
+
         formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
-        return self._bind(**{"tools": formatted_tools, **kwargs})  # Assume a _bind method exists
+        return self.execute_with_tools_or_schema(tools=formatted_tools, **kwargs)
 
     def with_structured_output(self, schema: Union[Dict[str, Any], Type[BaseModel]], **kwargs: Any) -> Union[Runnable[ModelInput, BaseMessage], StructuredRunnable]:
-        """
-        Enables structured output generation based on a given schema.
-
-        Args:
-            schema: The output schema, which can be a dictionary or a Pydantic BaseModel.
-            kwargs: Additional keyword arguments to configure structured output
-                    (e.g., method, include_raw, strict).
-
-        Returns:
-            A `Runnable` object that can be used to invoke the model and get structured output.
-        """
-
-        return self._with_structured_output(schema, **kwargs)  # Assume an internal method _with_structured_output exists
-
-    @abstractmethod
-    def _bind(self, **kwargs: Any) -> Union[Runnable[ModelInput, BaseMessage], StructuredRunnable]:
-        """
-        Abstract method for actual implementation of tool binding. Should be implemented by subclasses
-        """
-        return self._execute_with_tools_or_schema(**kwargs)
-
-    @abstractmethod
-    def _with_structured_output(self, schema: Union[Dict[str, Any], Type[BaseModel]], **kwargs: Any) -> Union[Runnable[ModelInput, BaseMessage], StructuredRunnable]:
-        """
-        Abstract method for actual implementation of structured output generation. Should be implemented by subclasses.
-        """
-        return self._execute_with_tools_or_schema(schema=schema, **kwargs)
+        return self.execute_with_tools_or_schema(schema=schema, **kwargs)

@@ -48,7 +48,7 @@ class AgentResponse:
             response = self._generate_chat_response(system_prompt, react_prompt)
             conversation_accumulator, thought_number, action_number = self._process_response(response, conversation_accumulator, thought_number, action_number, input_text)
 
-            if "Query Solved" in response.pretty_repr():
+            if hasattr(response, 'pretty_repr') and "Query Solved" in response.pretty_repr():
                 found_new_solution = True
                 break
 
