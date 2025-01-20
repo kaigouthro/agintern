@@ -41,7 +41,7 @@ class PromptEvolution:
     def _truncate_conversation(self, conversation: str) -> str:
         """Truncates the conversation to the last 1000 characters if it's too long."""
         if len(conversation) > 1000:
-            return conversation[:200] + "..." + conversation[-1000:]
+            return f"{conversation[:200]}...{conversation[-1000:]}"
         return conversation
 
     def _generate_runtime_context(self, depth: int) -> str:

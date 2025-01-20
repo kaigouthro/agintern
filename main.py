@@ -1,6 +1,7 @@
 import threading
 import time
 import os
+from typing import List
 
 from dotenv import load_dotenv
 from colorama import Fore, Style
@@ -13,12 +14,8 @@ from utils.ui import clear_console, display_agent_info, print_final_output, form
 from integrations.openaiwrapper import OpenAIAPIWrapper
 
 # Constants
-QUESTION_SET = [
-    "What is 5+9?",
-    "What is the population of Thailand?",
-    "What is the population of Sweden?",
-    "What is the population of Sweden and Thailand combined?"
-]
+QUESTION_SET = ["What is 5+9?", "What is the population of Thailand?", "What is the population of Sweden?", "What is the population of Sweden and Thailand combined?"]
+
 
 def initialize_manager(api_key: str, use_dummy_response: bool = False) -> MicroAgentManager:
     """
@@ -30,6 +27,7 @@ def initialize_manager(api_key: str, use_dummy_response: bool = False) -> MicroA
     manager.create_agents()
     return manager
 
+
 @time_function
 def process_user_input(manager: MicroAgentManager, user_input: str) -> str:
     """
@@ -37,6 +35,7 @@ def process_user_input(manager: MicroAgentManager, user_input: str) -> str:
     """
     agent = manager.get_or_create_agent("Bootstrap Agent", depth=1, sample_input=user_input)
     return agent.respond(user_input)
+
 
 def process_questions(manager: MicroAgentManager, outputs: List[str]):
     """
@@ -46,6 +45,7 @@ def process_questions(manager: MicroAgentManager, outputs: List[str]):
         response = process_user_input(manager, user_input)
         output_text = format_text(question_number, user_input, response)
         outputs.append(output_text)
+
 
 def main():
     load_dotenv()
@@ -70,6 +70,7 @@ def main():
         stop_event.set()
         print_final_output(outputs, manager)
         display_thread.join()
+
 
 if __name__ == "__main__":
     main()

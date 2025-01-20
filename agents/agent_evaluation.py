@@ -1,8 +1,12 @@
 import logging
 from integrations.llm_wrapper import LLMAPIWrapper
+from langchain_core.messages import HumanMessage
+from utils.utility import convert_message_to_dict
+
 
 # Basic logging setup
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 class AgentEvaluator:
     """
@@ -17,11 +21,11 @@ class AgentEvaluator:
         Returns evaluation of agent's output as 'Poor', 'Good', or 'Perfect'.
         """
         try:
-            query = ("Evaluate LLM Output: '{input}' with prompt '{prompt}' "
-                     "for quality/relevance. Possible Answers: Poor, Good, Perfect. "
-                     "LLM output: '{output}'").format(input=input_text, prompt=prompt, output=output)
+            query = ("Evaluate LLM Output: '{input}' with prompt '{prompt}' for quality/relevance. Possible Answers: Poor, Good, Perfect. LLM output: '{output}'").format(input=input_text, prompt=prompt, output=output)
 
-            return self.llm_api.chat_completion(messages=[{"role": "system", "content": query}])
+            response = self.llm_api.chat_completion(messages=[HumanMessage(content=query)])
+            return convert_message_to_dict(response).get("content", "Poor")
+
         except Exception as error:
             logging.info(f"Agent evaluation error: {error}")
             raise

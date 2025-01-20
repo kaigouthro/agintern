@@ -2,17 +2,8 @@ from typing import Union, List, Dict, Any, Optional, Sequence, Callable, Type
 import time
 import logging
 
-from langchain_core.messages import (
-    BaseMessage,
-    SystemMessage,
-    HumanMessage,
-    AIMessage,
-    FunctionMessage,
-    ToolMessage,
-    _message_from_dict,
-)
-from langchain_core.messages.chat import ChatMessage
-from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_core.messages import BaseMessage, AIMessage
+
 from langchain_core.tools import BaseTool
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
@@ -21,61 +12,18 @@ from langchain_core.output_parsers.openai_tools import (
     JsonOutputKeyToolsParser,
     PydanticToolsParser,
 )
+
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from operator import itemgetter
 
 # Replace the openai import with langchain_openai
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from pydantic import SecretStr
+from pydantic import SecretStr, BaseModel
 
 from llm_wrapper import LLMAPIWrapper
 
 RETRY_SLEEP_DURATION = 1  # seconds
 MAX_RETRIES = 5
-
-
-def _convert_message_to_dict(message: BaseMessage) -> dict:
-    """Convert a LangChain message to a dictionary."""
-    message_dict: Dict[str, Any] = {"content": message.content}
-    if (name := message.additional_kwargs.get("name")) is not None:
-        message_dict["name"] = name
-
-    # populate role and additional message data
-    if isinstance(message, ChatMessage):
-        message_dict["role"] = message.role
-    elif isinstance(message, HumanMessage):
-        message_dict["role"] = "user"
-    elif isinstance(message, AIMessage):
-        message_dict["role"] = "assistant"
-        if "function_call" in message.additional_kwargs:
-            message_dict["function_call"] = message.additional_kwargs["function_call"]
-        if "tool_calls" in message.additional_kwargs:
-            message_dict["tool_calls"] = message.additional_kwargs["tool_calls"]
-            tool_call_supported_props = {"id", "type", "function"}
-            message_dict["tool_calls"] = [{k: v for k, v in tool_call.items() if k in tool_call_supported_props} for tool_call in message_dict["tool_calls"]]
-        else:
-            pass
-        # If tool calls present, content null value should be None not empty string.
-        if "function_call" in message_dict or "tool_calls" in message_dict:
-            message_dict["content"] = message_dict["content"] or None
-    elif isinstance(message, SystemMessage):
-        message_dict["role"] = "system"
-    elif isinstance(message, FunctionMessage):
-        message_dict["role"] = "function"
-    elif isinstance(message, ToolMessage):
-        message_dict["role"] = "tool"
-        message_dict["tool_call_id"] = message.tool_call_id
-
-        supported_props = {"content", "role", "tool_call_id"}
-        message_dict = {k: v for k, v in message_dict.items() if k in supported_props}
-    else:
-        raise TypeError(f"Got unknown type {message}")
-    return message_dict
-
-
-def _convert_messages_to_dicts(messages: List[BaseMessage]) -> List[Dict]:
-    """Converts a list of `BaseMessage` objects to a list of dictionaries."""
-    return [_convert_message_to_dict(m) for m in messages]
 
 
 class OpenAIAPIWrapper(LLMAPIWrapper):
@@ -167,12 +115,10 @@ class OpenAIAPIWrapper(LLMAPIWrapper):
 
         while time.time() - start_time < self.timeout:
             try:
-                # Use LangChain's ChatOpenAI for chat completions
-                res = self.chat_client.invoke(
+                return self.chat_client.invoke(
                     input=messages,
                     **kwargs,
                 )
-                return res
             except Exception as e:
                 logging.error(f"OpenAI API error: {e}")
                 retries += 1
@@ -233,10 +179,7 @@ class OpenAIAPIWrapper(LLMAPIWrapper):
 
             llm = self._bind(tools=[schema])
 
-            if isinstance(schema, type) and issubclass(schema, BaseModel):
-                output_parser: Runnable = PydanticToolsParser(tools=[schema], first_tool_only=True)
-            else:
-                output_parser = JsonOutputKeyToolsParser(key_name=schema_name, first_tool_only=True)
+            output_parser = PydanticToolsParser(tools=[schema], first_tool_only=True) if isinstance(schema, type) and issubclass(schema, BaseModel) else JsonOutputKeyToolsParser(key_name=schema_name, first_tool_only=True)
         elif method == "json_mode":
             llm = self._bind(response_format={"type": "json_object"})
             output_parser = PydanticOutputParser(pydantic_object=schema) if isinstance(schema, type) and issubclass(schema, BaseModel) else JsonOutputParser()
@@ -246,11 +189,8 @@ class OpenAIAPIWrapper(LLMAPIWrapper):
         if include_raw:
             return RunnableMap(
                 raw=llm,
-                parsed=itemgetter("raw") | output_parser,
+                parsed=lambda x: itemgetter(x) | output_parser,
                 parsing_error=lambda _: None,
-            ).with_fallbacks(
-                [RunnablePassthrough.assign(parsed=lambda _: None)],
-                exception_key="parsing_error",
             )
         else:
             return llm | output_parser

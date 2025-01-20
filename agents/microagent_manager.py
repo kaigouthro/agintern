@@ -175,7 +175,7 @@ class MicroAgentManager:
 
             # Create a new agent using the loaded state
             loaded_agent = self.agent_registry.create_agent(
-                "General" if not agent_state['is_prime'] else PRIME_NAME,
+                PRIME_NAME if agent_state['is_prime'] else "General",
                 agent_state['dynamic_prompt'],
                 agent_state['purpose'],
                 agent_state['depth'],
